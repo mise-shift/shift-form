@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>シフト希望入力</title>
+<style>
+  :root{
+    --green:#06C755;
+    --green-dark:#049643;
+    --ink:#222;
+    --sub:#666;
+    --bg:#F4F6F5;
+    --line:#DDE2DF;
+    --off:#B0483C;
+    --off-bg:#FBEFED;
+    --mid:#5B4A8A;
+    --mid-bg:#F1EDF9;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",-apple-system,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    line-height:1.6;
+    max-width:480px;
+    margin:0 auto;
+    padding-bottom:96px;
+  }
+  header{
+    background:#fff;
+    border-bottom:1px solid var(--line);
+    padding:14px 16px 12px;
+    position:sticky;
+    top:0;
+    z-index:5;
+  }
+  header h1{font-size:16px;}
+  header .range{font-size:12.5px;color:var(--sub);}
+  header .deadline{
+    display:inline-block;
+    font-size:11.5px;font-weight:700;
+    color:var(--off);
+    background:var(--off-bg);
+    border-radius:6px;
+    padding:1px 8px;
+    margin-top:4px;
+  }
+  main{padding:12px;}
+
+  .name-card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:12px;
+    margin-bottom:10px;
+  }
+  .name-card label{font-size:13px;font-weight:700;display:block;margin-bottom:6px;}
+  .name-card input{
+    width:100%;
+    font-family:inherit;
+    font-size:16px;
+    padding:10px;
+    border:1px solid var(--line);
+    border-radius:10px;
+  }
+  .name-card .hint{font-size:11.5px;color:var(--sub);margin-top:4px;}
+
+  .day-card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:12px;
+    margin-bottom:10px;
+  }
+  .day-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:8px;
+  }
+  .day-name{font-size:15px;font-weight:700;}
+  .day-name .date{font-size:12px;color:var(--sub);font-weight:400;margin-left:6px;}
+  .day-name .sat{color:#2A6DB5;}
+  .day-name .sun{color:var(--off);}
+
+  .toggle{display:flex;background:#EFF2F0;border-radius:99px;padding:3px;}
+  .toggle button{
+    border:none;background:transparent;
+    font-family:inherit;font-size:12.5px;font-weight:700;
+    padding:5px 14px;border-radius:99px;
+    color:var(--sub);cursor:pointer;
+  }
+  .toggle button.on-work{background:var(--green);color:#fff;}
+  .toggle button.on-off{background:var(--off);color:#fff;}
+
+  .time-row{display:flex;align-items:center;gap:8px;}
+  .time-row select{
+    flex:1;font-family:inherit;font-size:16px;
+    padding:9px 8px;border:1px solid var(--line);border-radius:10px;
+    background:#fff;color:var(--ink);
+    -webkit-appearance:none;appearance:none;text-align:center;
+  }
+  .time-row .tilde{color:var(--sub);font-weight:700;}
+  .midnight-note{
+    font-size:11.5px;color:var(--mid);background:var(--mid-bg);
+    border-radius:8px;padding:4px 10px;margin-top:7px;display:none;
+  }
+  .day-card.crosses .midnight-note{display:block;}
+  .rest-note{
+    font-size:13px;color:var(--off);font-weight:700;text-align:center;
+    padding:9px 0;background:var(--off-bg);border-radius:10px;
+  }
+  .err{font-size:11.5px;color:var(--off);margin-top:6px;display:none;}
+  .day-card.has-err .err{display:block;}
+  .day-card.has-err{border-color:var(--off);}
+
+  .copy-hint{font-size:11.5px;color:var(--sub);text-align:right;margin-top:6px;}
+  .copy-hint button{
+    border:none;background:none;color:var(--green-dark);
+    font-family:inherit;font-size:11.5px;font-weight:700;
+    text-decoration:underline;cursor:pointer;padding:2px;
+  }
+
+  .submit-wrap{
+    position:fixed;bottom:0;left:0;right:0;
+    max-width:480px;margin:0 auto;
+    padding:10px 12px 18px;
+    background:linear-gradient(to top, var(--bg) 75%, transparent);
+  }
+  .submit-btn{
+    width:100%;border:none;background:var(--green);color:#fff;
+    font-family:inherit;font-size:16px;font-weight:700;
+    padding:14px;border-radius:12px;cursor:pointer;
+  }
+  .submit-btn:active{background:var(--green-dark);}
+  .submit-btn:disabled{background:#A8D8BC;}
+
+  .overlay{
+    display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,.45);z-index:10;
+    align-items:flex-end;justify-content:center;
+  }
+  .overlay.show{display:flex;}
+  .modal{
+    background:#fff;border-radius:18px 18px 0 0;
+    width:100%;max-width:480px;
+    padding:20px 16px 24px;
+    max-height:82vh;overflow-y:auto;
+  }
+  .modal h2{font-size:16px;text-align:center;margin-bottom:12px;}
+  .sum-row{
+    display:flex;justify-content:space-between;
+    font-size:14px;padding:8px 4px;
+    border-bottom:1px solid #F0F2F1;
+  }
+  .sum-row .d{font-weight:700;}
+  .sum-row .v-off{color:var(--off);font-weight:700;}
+  .modal-btns{display:flex;gap:8px;margin-top:16px;}
+  .modal-btns button{
+    flex:1;border:none;font-family:inherit;font-size:14.5px;font-weight:700;
+    padding:13px;border-radius:12px;cursor:pointer;
+  }
+  .btn-back{background:#EFF2F0;color:var(--ink);}
+  .btn-ok{background:var(--green);color:#fff;}
+
+  .done{display:none;text-align:center;padding:60px 20px;}
+  .done .mark{font-size:52px;}
+  .done h2{font-size:18px;margin:8px 0 4px;}
+  .done p{font-size:13px;color:var(--sub);}
+
+  .loading{
+    display:none;text-align:center;padding:80px 20px;
+    font-size:14px;color:var(--sub);
+  }
+</style>
+</head>
+<body>
+
+<div class="loading" id="loading">読み込み中…</div>
+
+<div id="app" style="display:none;">
+  <header id="header">
+    <h1>シフト希望入力</h1>
+    <p class="range" id="range-label"></p>
+    <span class="deadline" id="deadline-label"></span>
+  </header>
+
+  <main>
+    <div class="name-card">
+      <label>お名前（フルネーム）</label>
+      <input type="text" id="name-input" placeholder="例：山田 太郎">
+      <p class="hint">シフト表に載る名前です。本名に直してください</p>
+    </div>
+    <div id="form-area"></div>
+  </main>
+
+  <div class="submit-wrap" id="submit-wrap">
+    <button class="submit-btn" id="submit-btn" onclick="confirmSubmit()">入力内容を確認する</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2>この内容で提出しますか？</h2>
+    <div id="summary"></div>
+    <div class="modal-btns">
+      <button class="btn-back" onclick="closeModal()">戻って直す</button>
+      <button class="btn-ok" id="ok-btn" onclick="submitFinal()">提出する</button>
+    </div>
+  </div>
+</div>
+
+<div class="done" id="done">
+  <div class="mark">✅</div>
+  <h2>提出しました</h2>
+  <p>締切までは何度でも修正できます。<br>この画面は自動で閉じます。</p>
+</div>
+
+<!-- LIFF SDK（LINEとの接続部品） -->
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+/* ============================================================
+ * 設定：ここの2行だけ書き換えてください
+ * ============================================================ */
+const LIFF_ID = "ここにLIFF IDを貼る";   // 例: "1234567890-AbcdEfgh"
+const GAS_URL = "ここにGASのURLを貼る";  // 例: "https://script.google.com/macros/s/xxxxx/exec"
+
+/* 営業時間の設定（必要なら変更） */
+const OPEN_MIN  = 9 * 60;    // 9:00 開始
+const CLOSE_MIN = 26 * 60;   // 翌2:00（LAST）まで
+const STEP = 30;             // 30分刻み
+
+/* ============================================================
+ * 対象週の自動計算：常に「次の月曜」から1週間分を表示
+ * 締切は「今週の木曜 20:00」表示（文言のみ。自動締切はしない）
+ * ============================================================ */
+const DOW = ["日","月","火","水","木","金","土"];
+function nextMonday(){
+  const d = new Date();
+  const add = ((8 - d.getDay()) % 7) || 7; // 今日が月曜でも「次の」月曜
+  d.setDate(d.getDate() + add);
+  d.setHours(0,0,0,0);
+  return d;
+}
+const weekStartDate = nextMonday();
+const days = [];
+for(let i=0;i<7;i++){
+  const d = new Date(weekStartDate);
+  d.setDate(d.getDate()+i);
+  days.push({
+    label: DOW[d.getDay()],
+    date: (d.getMonth()+1) + "/" + d.getDate(),
+    cls: d.getDay()===6 ? "sat" : d.getDay()===0 ? "sun" : ""
+  });
+}
+const weekStartStr = weekStartDate.getFullYear() + "-"
+  + ("0"+(weekStartDate.getMonth()+1)).slice(-2) + "-"
+  + ("0"+weekStartDate.getDate()).slice(-2);
+
+function deadlineText(){
+  const d = new Date(weekStartDate);
+  d.setDate(d.getDate()-4); // 前週木曜
+  return "締切：" + (d.getMonth()+1) + "/" + d.getDate() + "(木) 20:00";
+}
+
+/* ============================================================
+ * 画面まわり（試作品と同じ）
+ * ============================================================ */
+function fmt(min){
+  if(min === CLOSE_MIN) return "LAST(翌2:00)";
+  const h = Math.floor(min/60);
+  const m = ("0" + (min%60)).slice(-2);
+  if(h >= 24) return "翌" + (h-24) + ":" + m;
+  return h + ":" + m;
+}
+function timeOptions(selected){
+  let html = "";
+  for(let t = OPEN_MIN; t <= CLOSE_MIN; t += STEP){
+    html += `<option value="${t}" ${t===selected?"selected":""}>${fmt(t)}</option>`;
+  }
+  return html;
+}
+
+const state = days.map(()=>({mode:"off", start:600, end:1020}));
+
+function render(){
+  const area = document.getElementById("form-area");
+  area.innerHTML = days.map((d,i)=>{
+    const s = state[i];
+    const crosses = s.mode==="work" && s.end >= 24*60;
+    return `
+    <div class="day-card ${crosses?'crosses':''}" id="card-${i}">
+      <div class="day-head">
+        <span class="day-name"><span class="${d.cls}">${d.label}</span><span class="date">${d.date}</span></span>
+        <span class="toggle">
+          <button class="${s.mode==='work'?'on-work':''}" onclick="setMode(${i},'work')">出勤</button>
+          <button class="${s.mode==='off'?'on-off':''}" onclick="setMode(${i},'off')">休み</button>
+        </span>
+      </div>
+      ${s.mode==="work" ? `
+        <div class="time-row">
+          <select onchange="setTime(${i},'start',this.value)">${timeOptions(s.start)}</select>
+          <span class="tilde">〜</span>
+          <select onchange="setTime(${i},'end',this.value)">${timeOptions(s.end)}</select>
+        </div>
+        <p class="midnight-note">🌙 日をまたぐ勤務（${d.date}の営業終わりまで）</p>
+        <p class="err">終了時間は開始時間より後にしてください</p>
+        ${i===0 ? "" : `<p class="copy-hint"><button onclick="copyPrev(${i})">前の日と同じにする</button></p>`}
+      ` : `
+        <div class="rest-note">休み希望</div>
+      `}
+    </div>`;
+  }).join("");
+}
+function setMode(i,mode){ state[i].mode = mode; render(); }
+function setTime(i,key,val){ state[i][key] = parseInt(val,10); render(); validate(i); }
+function copyPrev(i){ state[i] = {...state[i-1]}; render(); }
+function validate(i){
+  const card = document.getElementById("card-"+i);
+  const s = state[i];
+  const bad = s.mode==="work" && s.start >= s.end;
+  if(card) card.classList.toggle("has-err", bad);
+  return !bad;
+}
+function validateAll(){
+  let ok = true;
+  state.forEach((s,i)=>{ if(!validate(i)) ok = false; });
+  return ok;
+}
+
+function confirmSubmit(){
+  const name = document.getElementById("name-input").value.trim();
+  if(!name){
+    alert("お名前を入力してください");
+    return;
+  }
+  if(!validateAll()){
+    alert("時間の指定に誤りがある日があります。赤枠の日を確認してください。");
+    return;
+  }
+  const sum = document.getElementById("summary");
+  sum.innerHTML = days.map((d,i)=>{
+    const s = state[i];
+    const v = s.mode==="off"
+      ? `<span class="v-off">休み希望</span>`
+      : `${fmt(s.start)} 〜 ${fmt(s.end)}`;
+    return `<div class="sum-row"><span class="d">${d.label} <small>${d.date}</small></span><span>${v}</span></div>`;
+  }).join("");
+  document.getElementById("overlay").classList.add("show");
+}
+function closeModal(){
+  document.getElementById("overlay").classList.remove("show");
+}
+
+/* ============================================================
+ * LINE接続と送信（本番用の追加部分）
+ * ============================================================ */
+let lineUserId = "unknown";
+
+async function initLiff(){
+  document.getElementById("loading").style.display = "block";
+  try{
+    await liff.init({ liffId: LIFF_ID });
+    if(!liff.isLoggedIn()){
+      liff.login(); // LINE外のブラウザで開いた場合はログインさせる
+      return;
+    }
+    const profile = await liff.getProfile();
+    lineUserId = profile.userId;
+    // 名前欄にLINEの表示名を仮入力（本人がフルネームに直す）
+    document.getElementById("name-input").value = profile.displayName || "";
+  }catch(e){
+    // LIFFが使えない環境（PCでの動作確認など）でも画面は出す
+    console.warn("LIFF初期化スキップ:", e);
+  }
+  document.getElementById("range-label").textContent =
+    days[0].date + "(" + days[0].label + ") 〜 " + days[6].date + "(" + days[6].label + ")";
+  document.getElementById("deadline-label").textContent = deadlineText();
+  document.getElementById("loading").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  render();
+}
+
+async function submitFinal(){
+  const okBtn = document.getElementById("ok-btn");
+  okBtn.disabled = true;
+  okBtn.textContent = "送信中…";
+
+  const payload = {
+    userId: lineUserId,
+    name: document.getElementById("name-input").value.trim(),
+    weekStart: weekStartStr,
+    shifts: state.map(s => s.mode === "off"
+      ? { mode: "off" }
+      : { mode: "work", start: s.start, end: s.end })
+  };
+
+  try{
+    const res = await fetch(GAS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" }, // GASに届きやすい形式
+      body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if(!result.ok) throw new Error(result.error || "保存に失敗しました");
+
+    closeModal();
+    document.getElementById("app").style.display = "none";
+    document.getElementById("done").style.display = "block";
+    // 2秒後にLINEのトークに戻る
+    setTimeout(()=>{ if(liff.isInClient && liff.isInClient()) liff.closeWindow(); }, 2000);
+  }catch(e){
+    alert("送信に失敗しました。電波の良い場所でもう一度お試しください。\n" + e.message);
+    okBtn.disabled = false;
+    okBtn.textContent = "提出する";
+  }
+}
+
+initLiff();
+</script>
+</body>
+</html>
