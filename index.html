@@ -173,11 +173,35 @@
     display:none;text-align:center;padding:80px 20px;
     font-size:14px;color:var(--sub);
   }
+
+  /* 締切後ロック画面 */
+  .locked{display:none;padding:16px 12px;}
+  .locked-head{
+    background:#fff;border:1px solid var(--line);border-radius:14px;
+    padding:18px 14px;text-align:center;margin-bottom:10px;
+  }
+  .locked-head .mark{font-size:36px;}
+  .locked-head h2{font-size:16px;margin:6px 0 4px;}
+  .locked-head p{font-size:12.5px;color:var(--sub);}
+  .locked-list{
+    background:#fff;border:1px solid var(--line);border-radius:14px;
+    padding:8px 14px;
+  }
 </style>
 </head>
 <body>
 
 <div class="loading" id="loading">読み込み中…</div>
+
+<!-- 締切後（提出済み）のロック画面 -->
+<div class="locked" id="locked">
+  <div class="locked-head">
+    <div class="mark">🔒</div>
+    <h2>提出済みです</h2>
+    <p>締切を過ぎたため、この内容で確定しています。<br>変更が必要な場合は<b>店舗へ直接ご連絡ください</b>。</p>
+  </div>
+  <div class="locked-list" id="locked-list"></div>
+</div>
 
 <div id="app" style="display:none;">
   <header id="header">
@@ -214,31 +238,32 @@
 <div class="done" id="done">
   <div class="mark">✅</div>
   <h2>提出しました</h2>
-  <p>締切までは何度でも修正できます。<br>この画面は自動で閉じます。</p>
+  <p id="done-note">控えをトークにお送りしました。<br>この画面は自動で閉じます。</p>
 </div>
 
-<!-- LIFF SDK（LINEとの接続部品） -->
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script>
 /* ============================================================
  * 設定：ここの2行だけ書き換えてください
  * ============================================================ */
-const LIFF_ID = "2010766595-PY5AUKD2";   // 例: "1234567890-AbcdEfgh"
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxXxmPP-xQZB-nasGX_pCBc_Bxi_DTWTBzgJ-M4z5xSIEmLHlV-JRi0cLJdNuuUsdhznA/exec";  // 例: "https://script.google.com/macros/s/xxxxx/exec"
+const LIFF_ID = "2010766595-PY5AUKD2";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxXxmPP-xQZB-nasGX_pCBc_Bxi_DTWTBzgJ-M4z5xSIEmLHlV-JRi0cLJdNuuUsdhznA/exec";
 
-/* 営業時間の設定（必要なら変更） */
-const OPEN_MIN  = 9 * 60;    // 9:00 開始
-const CLOSE_MIN = 26 * 60;   // 翌2:00（LAST）まで
-const STEP = 30;             // 30分刻み
+/* 営業時間 */
+const OPEN_MIN  = 9 * 60;
+const CLOSE_MIN = 26 * 60;
+const STEP = 30;
 
 /* ============================================================
- * 対象週の自動計算：常に「次の月曜」から1週間分を表示
- * 締切は「今週の木曜 20:00」表示（文言のみ。自動締切はしない）
+ * 対象週：常に「次の月曜」から1週間
+ * 締切：週開始前日の日曜 20:00
+ *  - 締切前：何度でも提出・修正OK
+ *  - 締切後：提出済みの人はロック／未提出の人はそのまま提出可
  * ============================================================ */
 const DOW = ["日","月","火","水","木","金","土"];
 function nextMonday(){
   const d = new Date();
-  const add = ((8 - d.getDay()) % 7) || 7; // 今日が月曜でも「次の」月曜
+  const add = ((8 - d.getDay()) % 7) || 7;
   d.setDate(d.getDate() + add);
   d.setHours(0,0,0,0);
   return d;
@@ -258,14 +283,15 @@ const weekStartStr = weekStartDate.getFullYear() + "-"
   + ("0"+(weekStartDate.getMonth()+1)).slice(-2) + "-"
   + ("0"+weekStartDate.getDate()).slice(-2);
 
+const deadlineDate = new Date(weekStartDate);
+deadlineDate.setDate(deadlineDate.getDate()-1); // 前日の日曜
+deadlineDate.setHours(20,0,0,0);
 function deadlineText(){
-  const d = new Date(weekStartDate);
-  d.setDate(d.getDate()-4); // 前週木曜
-  return "締切：" + (d.getMonth()+1) + "/" + d.getDate() + "(木) 20:00";
+  return "締切：" + (deadlineDate.getMonth()+1) + "/" + deadlineDate.getDate() + "(日) 20:00";
 }
 
 /* ============================================================
- * 画面まわり（試作品と同じ）
+ * 画面まわり
  * ============================================================ */
 function fmt(min){
   if(min === CLOSE_MIN) return "LAST(翌2:00)";
@@ -331,10 +357,7 @@ function validateAll(){
 
 function confirmSubmit(){
   const name = document.getElementById("name-input").value.trim();
-  if(!name){
-    alert("お名前を入力してください");
-    return;
-  }
+  if(!name){ alert("お名前を入力してください"); return; }
   if(!validateAll()){
     alert("時間の指定に誤りがある日があります。赤枠の日を確認してください。");
     return;
@@ -354,7 +377,7 @@ function closeModal(){
 }
 
 /* ============================================================
- * LINE接続と送信（本番用の追加部分）
+ * LINE接続・提出状況チェック・送信
  * ============================================================ */
 let lineUserId = "unknown";
 
@@ -363,23 +386,48 @@ async function initLiff(){
   try{
     await liff.init({ liffId: LIFF_ID });
     if(!liff.isLoggedIn()){
-      liff.login(); // LINE外のブラウザで開いた場合はログインさせる
+      liff.login();
       return;
     }
     const profile = await liff.getProfile();
     lineUserId = profile.userId;
-    // 名前欄にLINEの表示名を仮入力（本人がフルネームに直す）
     document.getElementById("name-input").value = profile.displayName || "";
   }catch(e){
-    // LIFFが使えない環境（PCでの動作確認など）でも画面は出す
     console.warn("LIFF初期化スキップ:", e);
   }
+
+  // 締切後の場合、提出済みかどうかをGASに問い合わせ
+  if(new Date() > deadlineDate && lineUserId !== "unknown"){
+    try{
+      const res = await fetch(GAS_URL + "?userId=" + encodeURIComponent(lineUserId) + "&week=" + weekStartStr);
+      const st = await res.json();
+      if(st.ok && st.locked){
+        showLocked(st.shifts);
+        return;
+      }
+    }catch(e){
+      console.warn("状態確認スキップ:", e); // 確認できなくても通常画面は出す（送信時にGAS側で再チェック）
+    }
+  }
+
   document.getElementById("range-label").textContent =
     days[0].date + "(" + days[0].label + ") 〜 " + days[6].date + "(" + days[6].label + ")";
   document.getElementById("deadline-label").textContent = deadlineText();
   document.getElementById("loading").style.display = "none";
   document.getElementById("app").style.display = "block";
   render();
+}
+
+// 締切後×提出済みのロック画面
+function showLocked(shifts){
+  document.getElementById("loading").style.display = "none";
+  const list = document.getElementById("locked-list");
+  list.innerHTML = days.map((d,i)=>{
+    const v = shifts && shifts[i] ? shifts[i] : "-";
+    const cls = v === "休" ? "v-off" : "";
+    return `<div class="sum-row"><span class="d">${d.label} <small>${d.date}</small></span><span class="${cls}">${v}</span></div>`;
+  }).join("");
+  document.getElementById("locked").style.display = "block";
 }
 
 async function submitFinal(){
@@ -399,17 +447,29 @@ async function submitFinal(){
   try{
     const res = await fetch(GAS_URL, {
       method: "POST",
-      headers: { "Content-Type": "text/plain" }, // GASに届きやすい形式
+      headers: { "Content-Type": "text/plain" },
       body: JSON.stringify(payload)
     });
     const result = await res.json();
-    if(!result.ok) throw new Error(result.error || "保存に失敗しました");
+
+    if(!result.ok){
+      if(result.locked){
+        // 締切後に提出済みだった場合（GAS側の二重チェックに引っかかった）
+        alert(result.error);
+        location.reload();
+        return;
+      }
+      throw new Error(result.error || "保存に失敗しました");
+    }
 
     closeModal();
     document.getElementById("app").style.display = "none";
+    if(result.late){
+      document.getElementById("done-note").innerHTML =
+        "締切後のため、この内容で確定しました。<br>変更は店舗へ直接ご連絡ください。";
+    }
     document.getElementById("done").style.display = "block";
-    // 2秒後にLINEのトークに戻る
-    setTimeout(()=>{ if(liff.isInClient && liff.isInClient()) liff.closeWindow(); }, 2000);
+    setTimeout(()=>{ if(liff.isInClient && liff.isInClient()) liff.closeWindow(); }, 2500);
   }catch(e){
     alert("送信に失敗しました。電波の良い場所でもう一度お試しください。\n" + e.message);
     okBtn.disabled = false;
