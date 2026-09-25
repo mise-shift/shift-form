@@ -64,6 +64,7 @@
     padding:10px;border:1px solid var(--line);border-radius:10px;
   }
   .name-card .hint{font-size:11.5px;color:var(--sub);margin-top:4px;}
+  .name-card input[readonly]{background:#F1F3F5;color:#444;}
 
   .day-card{
     background:#fff;border:1px solid var(--line);border-radius:14px;
@@ -379,6 +380,7 @@ function closeModal(){
 
 /* LINE接続・状態取得・送信 */
 let lineUserId = "unknown";
+let linePictureUrl = "";
 
 async function initLiff(){
   document.getElementById("loading").style.display = "block";
@@ -390,6 +392,7 @@ async function initLiff(){
     }
     const profile = await liff.getProfile();
     lineUserId = profile.userId;
+    linePictureUrl = profile.pictureUrl || "";
     document.getElementById("name-input").value = profile.displayName || "";
   }catch(e){
     console.warn("LIFF初期化スキップ:", e);
@@ -408,8 +411,10 @@ async function initLiff(){
         }
         // 本名の自動入力（名簿にあれば）
         if(st.name){
-          document.getElementById("name-input").value = st.name;
-          document.getElementById("name-hint").textContent = "前回の提出時の名前です。変わっていなければそのままでOK";
+          const ni = document.getElementById("name-input");
+          ni.value = st.name;
+          ni.readOnly = true;
+          document.getElementById("name-hint").textContent = "登録済みの名前です。変更は店舗へご連絡ください";
         }
         // 今週すでに提出済み（締切前）→ その内容を復元して編集モードに
         if(st.raw){
@@ -454,6 +459,7 @@ async function submitFinal(){
   const payload = {
     userId: lineUserId,
     name: document.getElementById("name-input").value.trim(),
+    pictureUrl: linePictureUrl,
     weekStart: weekStartStr,
     shifts: state.map(s => s.mode === "off"
       ? { mode: "off" }
