@@ -244,7 +244,7 @@ const OPEN_MIN  = 9 * 60;
 const CLOSE_MIN = 26 * 60;
 const STEP = 30;
 
-/* 対象週：常に「次の月曜」から1週間／締切：前日の日曜 20:00 */
+/* 対象週：常に「次の月曜」から1週間／締切：前日の日曜 16:00 */
 const DOW = ["日","月","火","水","木","金","土"];
 function nextMonday(){
   const d = new Date();
@@ -270,9 +270,9 @@ const weekStartStr = weekStartDate.getFullYear() + "-"
 
 const deadlineDate = new Date(weekStartDate);
 deadlineDate.setDate(deadlineDate.getDate()-1);
-deadlineDate.setHours(20,0,0,0);
+deadlineDate.setHours(16,0,0,0);
 function deadlineText(){
-  return "締切：" + (deadlineDate.getMonth()+1) + "/" + deadlineDate.getDate() + "(日) 20:00";
+  return "締切：" + (deadlineDate.getMonth()+1) + "/" + deadlineDate.getDate() + "(日) 16:00";
 }
 
 /* 画面まわり */
